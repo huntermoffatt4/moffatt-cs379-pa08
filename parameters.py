@@ -81,8 +81,31 @@ def bind_parameters(param_specs: List[Tuple[str, str]], arg_nodes: list, caller_
     delayed write-back later -- store it whichever way you like (e.g.
     an attribute on callee_record such as callee_record.pending_writeback).
     """
-    # TODO
-    raise NotImplementedError
+    # List to store info about parameters that need to be copied back to the caller
+    # Used for pass-by-value-result
+    callee_record.pending_writeback = []
+
+    # Matches each function parameter with its argument
+    for (name, mode), arg in zip(param_specs, arg_nodes):
+        if mode == "reference" or mode == "value-result":
+            if not isinstance(arg, Variable):
+                raise TypeError("Argument must be a variable")
+
+        # Pass-by-reference
+        if mode == "reference":
+            cell = caller_env.resolve(arg.name)
+        # Pass-by-value and pass-by-value-result
+        else:
+            cell = Cell(evaluate(arg, caller_env))
+
+        # Adds the parameter to the callee's local environment
+        callee_record.locals_env.define(name, cell)
+
+        # Checks whether the parameter needs to be copied back
+        if mode == "value-result":
+            callee_record.pending_writeback.append(
+                (name, caller_env.resolve(arg.name))
+            )
 
 
 def commit_value_result(callee_record, caller_env: Environment) -> None:
@@ -92,14 +115,17 @@ def commit_value_result(callee_record, caller_env: Environment) -> None:
     corresponding variable now (call this only after the callee's body
     has finished running).
     """
-    # TODO
-    raise NotImplementedError
+    # Waits until the function returns before changing the caller's variables
+    for name, cell in callee_record.pending_writeback:
+        cell.value = callee_record.locals_env.resolve(name).value
 
 
 class Closure:
     def __init__(self, declaration: FunctionDecl, defining_env: Environment) -> None:
-        # TODO
-        raise NotImplementedError
+        # Stores function's definition in the closure
+        self.declaration = declaration
+        # Stores environment where the function was defined
+        self.defining_env = defining_env
 
     def call(self, args: list, caller_env: Environment):
         """
@@ -109,5 +135,11 @@ class Closure:
         values, wrapped in a Cell), then evaluate declaration.body in
         that new environment and return the result.
         """
-        # TODO
-        raise NotImplementedError
+        # Creates a new environment with static link
+        env = Environment(self.defining_env)
+
+        # Matches each function parameter with its argument
+        for name, value in zip(self.declaration.params, args):
+            env.define(name, Cell(value))
+
+        return evaluate(self.declaration.body, env)

@@ -32,8 +32,9 @@ class ClassDecl:
 class VTable:
     def __init__(self, entries: Dict[str, MethodLike], owning_class_name: str = "?") -> None:
         """`owning_class_name` is just for error messages -- store it alongside entries."""
-        # TODO: store entries and owning_class_name.
-        raise NotImplementedError
+        # Storing methods and class name
+        self.entries = entries
+        self.owning_class_name = owning_class_name
 
     def resolve(self, method_name: str) -> MethodLike:
         """
@@ -41,8 +42,10 @@ class VTable:
         error (e.g. AttributeError) whose message names BOTH the
         owning class and the missing method if it doesn't exist.
         """
-        # TODO
-        raise NotImplementedError
+        # Finds a method and returns it, or raise an error if it doesn't exist
+        if method_name in self.entries:
+            return self.entries[method_name]
+        raise AttributeError(f"{self.owning_class_name} has no method '{method_name}'")
 
 
 def build_vtable(class_node: ClassDecl, parent_vtable: Optional[VTable] = None) -> VTable:
@@ -53,14 +56,22 @@ def build_vtable(class_node: ClassDecl, parent_vtable: Optional[VTable] = None) 
     method object the parent uses -- don't wrap or duplicate it.
     Pass class_node.name as the new VTable's owning_class_name.
     """
-    # TODO
-    raise NotImplementedError
+    # Copies the parent's methods if there are any
+    if parent_vtable is None:
+        entries = {}
+    else:
+        entries = dict(parent_vtable.entries)
+
+    # Adds or replaces methods declared by the child
+    entries.update(class_node.methods)
+    return VTable(entries, class_node.name)
 
 
 class USIObject:
     def __init__(self, class_descriptor: VTable, fields: dict) -> None:
-        # TODO: store both. class_descriptor is this object's ACTUAL runtime VTable.
-        raise NotImplementedError
+        # Storing the object's class information and fields
+        self.class_descriptor = class_descriptor
+        self.fields = fields
 
 
 def dispatch(obj: USIObject, method_name: str, args: list, caller_env) -> object:
@@ -69,5 +80,6 @@ def dispatch(obj: USIObject, method_name: str, args: list, caller_env) -> object
     static type), then call the resolved method via PA 7's interface:
     resolved_method.call([obj, *args], caller_env).
     """
-    # TODO
-    raise NotImplementedError
+    # Looks up the method and calls it
+    method = obj.class_descriptor.resolve(method_name)
+    return method.call([obj, *args], caller_env)
